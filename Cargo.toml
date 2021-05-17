@@ -1,0 +1,15 @@
+[package]
+name = "zeeve"
+version = "0.1.0"
+authors = ["Raj Patil <floatraj@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crossterm = "0.19.0"
+structopt = "0.3.21"
+structopt-derive = "0.4.14"
+rust-crypto = "0.2.36"
+rand="0.8.3"
+base64 = "0.13.0"
