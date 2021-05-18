@@ -1,6 +1,7 @@
 use crypto::{
     aes::{self, KeySize},
     bcrypt::bcrypt,
+    hmac::Hmac,
     pbkdf2::pbkdf2_simple,
 };
 use crypto::{blockmodes, buffer, symmetriccipher};
@@ -11,7 +12,7 @@ use crypto::{
 use crypto::{pbkdf2::pbkdf2, symmetriccipher::SynchronousStreamCipher};
 
 use aes_siv::aead::{Aead, NewAead};
-use aes_siv::{Aes128SivAead, Key, Nonce};
+use aes_siv::{Aes128SivAead, Aes256SivAead, Key, Nonce};
 use chrono::prelude::*;
 use rand::Rng;
 use std::path::Path;
@@ -63,41 +64,45 @@ fn main() {
             //check if encrypt or decrypt
             if option == "e".to_string().as_ref() {
                 i = i + 1;
-                let readContent = std::fs::read(&file).unwrap();
+                let readContent;
+                match std::fs::read(&file) {
+                    Ok(res) => readContent = res,
+                    Err(_) => {
+                        println!("Cannot read the file {}", &file);
+                        return;
+                    }
+                }
+                //************************* */
+                // let params = ScryptParams::new(10, 8, 16);
+                // let mypass1 = scrypt::scrypt_simple(&password, &params).unwrap();
 
+                // let pk=
+
+                // let hh = mypass1.as_bytes();
+                // let ys = &hh[1..33];
+
+                //let mypass1 = pbkdf2_simple(&password.as_str(), 1024).unwrap();
+                let mut mac = Hmac::new(Sha1::new(), &password.as_bytes());
+                //let mypass1 =
+                let mut dk = [0u8; 32];
+                //let mut result: Vec<u8> = repeat(0).take(t.expected.len()).collect();
+                pbkdf2(&mut mac, &nounce, 100, &mut dk);
+                //let hh = mypass1.as_bytes();
+                //************************ */
                 println!("Encrypting {}", &file);
                 let pass32 = make32(password.clone());
                 let password_bytes = pass32.as_bytes();
-                //println!("{}", password_bytes.len());
-
-                let encrypted_data = encrypt(&readContent, &password_bytes, &nounce)
-                    .ok()
-                    .unwrap();
-                //let encrypted_string = str::from_utf8(&encrypted_data).unwrap();
-                let utc = Utc::now().timestamp();
-                let mut fileStem = Path::new(&file)
-                    .file_stem()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-
-                let mut localfile = file.clone().to_owned();
-                fileStem.push_str(&utc.to_string());
-                fileStem.push_str("e");
-                fileStem.push_str(&i.to_string());
-                // let fileExtension=Path::new(&file).extension().unwrap().to_str().unwrap().to_string();
-                // fileStem.push_str(&fileExtension);
-                println!("File name is {}", &fileStem);
-                let mut file = File::create(&fileStem);
-                match file {
-                    Ok(file) => {
-                        let mut finalfile = file;
-                        finalfile.write_all(&encrypted_data).unwrap();
+                println!("{}", &dk.len());
+                // for x in hh {
+                //     print!("{} ", x);
+                // }
+                let encrypted_data = encrypt(&readContent, &dk[0..32], &nounce).ok().unwrap();
+                match write_file(&'e', &encrypted_data, &file.as_str()) {
+                    Ok(res) => {
+                        println!("{}", &res);
                     }
                     Err(err) => {
-                        println!("{} Error Creating the file {}", &err, &localfile);
-                        break;
+                        println!("{}", &err)
                     }
                 }
             } else {
@@ -110,16 +115,19 @@ fn main() {
                 let mut buffer = Vec::<u8>::new();
                 readfile.read_to_end(&mut buffer);
                 let utc = Utc::now().timestamp();
-                let mut fileStem = Path::new(&file)
-                    .file_stem()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-                fileStem.push_str(&utc.to_string());
-                fileStem.push_str("d");
-
-                let decrypted_data = decrypt(&buffer[..], &password_bytes, &nounce);
+                //** */
+                // let mypass1 = pbkdf2_simple(&password.as_str(), 1024).unwrap();
+                // let hh = mypass1.as_bytes();
+                //** */
+                let mut mac = Hmac::new(Sha1::new(), &password.as_bytes());
+                //let mypass1 =
+                let mut dk = [0u8; 32];
+                //let mut result: Vec<u8> = repeat(0).take(t.expected.len()).collect();
+                pbkdf2(&mut mac, &nounce, 100, &mut dk);
+                // for x in hh {
+                //     print!("{} ", x);
+                // }
+                let decrypted_data = decrypt(&buffer[..], &dk[0..32], &nounce);
                 let decryptedResult;
                 match decrypted_data {
                     Ok(decrypted_data1) => decryptedResult = decrypted_data1,
@@ -128,15 +136,99 @@ fn main() {
                         return;
                     }
                 }
-                //let fileContent=str::from_utf8(&decrypted_data).unwrap();
-                let mut newfile = File::create(&fileStem).unwrap();
-                newfile.write_all(&decryptedResult).unwrap();
-                println!("File name after decryption is {}", &fileStem);
-                println!("just change the file extension after decryption");
+
+                match write_file(&'d', &decryptedResult, &file.as_str()) {
+                    Ok(res) => {
+                        println!("{}", &res);
+                    }
+                    Err(err) => {
+                        println!("{}", &err)
+                    }
+                }
+                //println!("File name after decryption is {}", &fileStem);
+                println!(
+                    "just change the file extension after decryption if it was not set earlier"
+                );
             }
         }
     }
 }
+
+fn write_file(flag: &char, input: &[u8], filename: &str) -> Result<String, &'static str> {
+    //check if file laready exist
+    let mut status;
+    match std::fs::read(&filename) {
+        Ok(file) => status = "exist",
+        Err(err) => return Err("file does not exist"),
+    }
+    //get part before extension
+    let mut fileStem = Path::new(&filename)
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    //get extension
+    let mut file_extension: String = "".to_string();
+    match Path::new(&filename).extension() {
+        Some(fileResult) => file_extension = fileResult.to_str().unwrap().to_string(),
+        None => {
+            file_extension = "".to_string();
+        }
+    }
+    //get final file name
+
+    if *flag == 'e' {
+        fileStem.push_str("_E");
+    } else {
+        fileStem.push_str("_D");
+    }
+    if (file_extension != "".to_string()) {
+        fileStem.push_str(".");
+        fileStem.push_str(&file_extension);
+    }
+    //check if file name already there
+    while Path::new(&fileStem).exists() {
+        //println!("file already there");
+        let mut newStem = Path::new(&fileStem)
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        newStem.push_str("_cp");
+        let mut new_file_extension: String = "".to_string();
+        match Path::new(&fileStem).extension() {
+            Some(newfileResult) => {
+                new_file_extension = newfileResult.to_str().unwrap().to_string();
+                newStem.push_str(".");
+                newStem.push_str(&new_file_extension);
+            }
+            None => {
+                file_extension = "".to_string();
+            }
+        }
+
+        fileStem = newStem;
+    }
+
+    //create file with the name
+    let mut newfile;
+
+    match File::create(&fileStem) {
+        Ok(fileResult) => newfile = fileResult,
+        Err(_) => return Err("error creating file"),
+    }
+    //write to file
+    match newfile.write_all(input) {
+        Ok(good) => {
+            let returnString = format!("{} file created successfully ", &fileStem);
+            return Ok(returnString);
+        }
+        Err(_) => return Err("error writing to file"),
+    }
+}
+
 fn make32(pass: String) -> String {
     let len = pass.len();
     let mut localpass = pass.clone();
