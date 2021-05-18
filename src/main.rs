@@ -149,7 +149,7 @@ fn make32(pass: String) -> String {
     } else {
         let mut remain = 32 - len;
         while remain > 0 {
-            localpass.push_str("1");
+            localpass.push_str(&len.to_string());
             remain = remain - 1;
         }
         return localpass.as_str().to_string();
