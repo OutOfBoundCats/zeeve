@@ -49,6 +49,7 @@ struct Cli {
 }
 
 fn main() {
+    //salt
     let nounce = "1111111111111111".as_bytes();
     let args = Cli::from_args();
     let file_names: Vec<String> = args.filenames;
@@ -72,30 +73,18 @@ fn main() {
                         return;
                     }
                 }
-                //************************* */
-                // let params = ScryptParams::new(10, 8, 16);
-                // let mypass1 = scrypt::scrypt_simple(&password, &params).unwrap();
 
-                // let pk=
-
-                // let hh = mypass1.as_bytes();
-                // let ys = &hh[1..33];
-
-                //let mypass1 = pbkdf2_simple(&password.as_str(), 1024).unwrap();
                 let mut mac = Hmac::new(Sha1::new(), &password.as_bytes());
-                //let mypass1 =
+
                 let mut dk = [0u8; 32];
-                //let mut result: Vec<u8> = repeat(0).take(t.expected.len()).collect();
+
                 pbkdf2(&mut mac, &nounce, 100, &mut dk);
-                //let hh = mypass1.as_bytes();
-                //************************ */
+
                 println!("Encrypting {}", &file);
                 let pass32 = make32(password.clone());
                 let password_bytes = pass32.as_bytes();
                 println!("{}", &dk.len());
-                // for x in hh {
-                //     print!("{} ", x);
-                // }
+
                 let encrypted_data = encrypt(&readContent, &dk[0..32], &nounce).ok().unwrap();
                 match write_file(&'e', &encrypted_data, &file.as_str()) {
                     Ok(res) => {
@@ -115,18 +104,13 @@ fn main() {
                 let mut buffer = Vec::<u8>::new();
                 readfile.read_to_end(&mut buffer);
                 let utc = Utc::now().timestamp();
-                //** */
-                // let mypass1 = pbkdf2_simple(&password.as_str(), 1024).unwrap();
-                // let hh = mypass1.as_bytes();
-                //** */
+
                 let mut mac = Hmac::new(Sha1::new(), &password.as_bytes());
-                //let mypass1 =
+
                 let mut dk = [0u8; 32];
-                //let mut result: Vec<u8> = repeat(0).take(t.expected.len()).collect();
+
                 pbkdf2(&mut mac, &nounce, 100, &mut dk);
-                // for x in hh {
-                //     print!("{} ", x);
-                // }
+
                 let decrypted_data = decrypt(&buffer[..], &dk[0..32], &nounce);
                 let decryptedResult;
                 match decrypted_data {
