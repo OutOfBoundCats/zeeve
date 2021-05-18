@@ -11,8 +11,6 @@ use crypto::{
 };
 use crypto::{pbkdf2::pbkdf2, symmetriccipher::SynchronousStreamCipher};
 
-use aes_siv::aead::{Aead, NewAead};
-use aes_siv::{Aes128SivAead, Aes256SivAead, Key, Nonce};
 use chrono::prelude::*;
 use rand::Rng;
 use std::path::Path;
@@ -70,7 +68,7 @@ fn main() {
                     Ok(res) => readContent = res,
                     Err(_) => {
                         println!("Cannot read the file {}", &file);
-                        return;
+                        continue;
                     }
                 }
 
@@ -101,7 +99,7 @@ fn main() {
                     Ok(res) => readContent = res,
                     Err(_) => {
                         println!("Cannot read the file {}", &file);
-                        return;
+                        continue;
                     }
                 }
 
