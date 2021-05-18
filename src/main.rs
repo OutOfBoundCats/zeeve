@@ -81,9 +81,8 @@ fn main() {
                 pbkdf2(&mut mac, &nounce, 100, &mut dk);
 
                 println!("Encrypting {}", &file);
-                let pass32 = make32(password.clone());
-                let password_bytes = pass32.as_bytes();
-                println!("{}", &dk.len());
+
+                //println!("{}", &dk.len());
 
                 let encrypted_data = encrypt(&readContent, &dk[0..32], &nounce).ok().unwrap();
                 match write_file(&'e', &encrypted_data, &file.as_str()) {
@@ -96,14 +95,15 @@ fn main() {
                 }
             } else {
                 println!("Decrypting {}", &file);
-                let pass32 = make32(password.clone());
-                let password_bytes = pass32.as_bytes();
-                //println!("{}", password_bytes.len());
-                let mut readfile = File::open(&file).unwrap();
-                // read the same file back into a Vec of bytes
-                let mut buffer = Vec::<u8>::new();
-                readfile.read_to_end(&mut buffer);
-                let utc = Utc::now().timestamp();
+
+                let readContent;
+                match std::fs::read(&file) {
+                    Ok(res) => readContent = res,
+                    Err(_) => {
+                        println!("Cannot read the file {}", &file);
+                        return;
+                    }
+                }
 
                 let mut mac = Hmac::new(Sha1::new(), &password.as_bytes());
 
@@ -111,7 +111,7 @@ fn main() {
 
                 pbkdf2(&mut mac, &nounce, 100, &mut dk);
 
-                let decrypted_data = decrypt(&buffer[..], &dk[0..32], &nounce);
+                let decrypted_data = decrypt(&readContent, &dk[0..32], &nounce);
                 let decryptedResult;
                 match decrypted_data {
                     Ok(decrypted_data1) => decryptedResult = decrypted_data1,
@@ -131,7 +131,7 @@ fn main() {
                 }
                 //println!("File name after decryption is {}", &fileStem);
                 println!(
-                    "just change the file extension after decryption if it was not set earlier"
+                    "just change the file extension after decryption if it was not set earlier \n"
                 );
             }
         }
@@ -210,21 +210,6 @@ fn write_file(flag: &char, input: &[u8], filename: &str) -> Result<String, &'sta
             return Ok(returnString);
         }
         Err(_) => return Err("error writing to file"),
-    }
-}
-
-fn make32(pass: String) -> String {
-    let len = pass.len();
-    let mut localpass = pass.clone();
-    if len == 32 {
-        return localpass.as_str().to_string();
-    } else {
-        let mut remain = 32 - len;
-        while remain > 0 {
-            localpass.push_str(&len.to_string());
-            remain = remain - 1;
-        }
-        return localpass.as_str().to_string();
     }
 }
 
