@@ -10,12 +10,14 @@ use crypto::{
 };
 use crypto::{pbkdf2::pbkdf2, symmetriccipher::SynchronousStreamCipher};
 
+use aes_siv::aead::{Aead, NewAead};
+use aes_siv::{Aes128SivAead, Key, Nonce};
 use chrono::prelude::*;
 use rand::Rng;
-use std::{fs::File, io::Write};
 use std::path::Path;
 use std::str;
 use std::{convert::TryInto, time::SystemTime};
+use std::{fs::File, io::Write};
 use structopt::StructOpt;
 
 use std::io::prelude::*;
@@ -52,32 +54,17 @@ fn main() {
     let number_of_files: i32 = args.number_of_files;
     let option: String = args.option;
     let password: String = args.password;
-    let mut i:i32=0;
+    let mut i: i32 = 0;
 
     if number_of_files != file_names.len().try_into().unwrap() {
         println!("Number of file names paassed as -f is not equal to number passed in -n");
     } else {
         for file in file_names {
-            
             //check if encrypt or decrypt
             if option == "e".to_string().as_ref() {
-                i=i+1;
-            let readContent = std::fs::read(&file).unwrap();
-            //     let mut readfile = File::open(&file).unwrap();
-            //      // read the same file back into a Vec of bytes
-            //     let mut buffer = Vec::<u8>::new();
-            //     readfile.read_to_end(&mut buffer);
-            //     let content = std::fs::read_to_string(&file);
-            // let readContent;
-            // match content {
-            //     Ok(content) => {
-            //         readContent = content;
-            //     }
-            //     Err(error) => {
-            //         println!("{} File could not be read please check if file exist and have correct permissions and its correctly formatted", &file);
-            //         break;
-            //     }
-            // }
+                i = i + 1;
+                let readContent = std::fs::read(&file).unwrap();
+
                 println!("Encrypting {}", &file);
                 let pass32 = make32(password.clone());
                 let password_bytes = pass32.as_bytes();
@@ -88,55 +75,64 @@ fn main() {
                     .unwrap();
                 //let encrypted_string = str::from_utf8(&encrypted_data).unwrap();
                 let utc = Utc::now().timestamp();
-                let mut fileStem=Path::new(&file).file_stem().unwrap().to_str().unwrap().to_string();
-                
+                let mut fileStem = Path::new(&file)
+                    .file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+
                 let mut localfile = file.clone().to_owned();
                 fileStem.push_str(&utc.to_string());
                 fileStem.push_str("e");
                 fileStem.push_str(&i.to_string());
                 // let fileExtension=Path::new(&file).extension().unwrap().to_str().unwrap().to_string();
                 // fileStem.push_str(&fileExtension);
-                println!("File name is {}",&fileStem);
+                println!("File name is {}", &fileStem);
                 let mut file = File::create(&fileStem);
-                match file{
-                    Ok(file)=>{let mut finalfile=file;
+                match file {
+                    Ok(file) => {
+                        let mut finalfile = file;
                         finalfile.write_all(&encrypted_data).unwrap();
-                    },
-                    Err(err)=>{println!("{} Error Creating the file {}",&err,&localfile);
-                break;
-            }
+                    }
+                    Err(err) => {
+                        println!("{} Error Creating the file {}", &err, &localfile);
+                        break;
+                    }
                 }
-               
             } else {
                 println!("Decrypting {}", &file);
                 let pass32 = make32(password.clone());
                 let password_bytes = pass32.as_bytes();
                 //println!("{}", password_bytes.len());
                 let mut readfile = File::open(&file).unwrap();
-                 // read the same file back into a Vec of bytes
+                // read the same file back into a Vec of bytes
                 let mut buffer = Vec::<u8>::new();
                 readfile.read_to_end(&mut buffer);
                 let utc = Utc::now().timestamp();
-                let mut fileStem=Path::new(&file).file_stem().unwrap().to_str().unwrap().to_string();
+                let mut fileStem = Path::new(&file)
+                    .file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
                 fileStem.push_str(&utc.to_string());
                 fileStem.push_str("d");
-                
-             
-                let decrypted_data = decrypt(&buffer[..], &password_bytes, &nounce)
-                   
-                    ;
+
+                let decrypted_data = decrypt(&buffer[..], &password_bytes, &nounce);
                 let decryptedResult;
-                match decrypted_data{
-                   Ok(decrypted_data1)=>{decryptedResult=decrypted_data1},
-                   Err(err)=>{println!("Password is not correct");
-                    return;
-                }
+                match decrypted_data {
+                    Ok(decrypted_data1) => decryptedResult = decrypted_data1,
+                    Err(err) => {
+                        println!("Password is not correct");
+                        return;
+                    }
                 }
                 //let fileContent=str::from_utf8(&decrypted_data).unwrap();
                 let mut newfile = File::create(&fileStem).unwrap();
-                 newfile.write_all(&decryptedResult).unwrap();
-                 println!("File name after decryption is {}",&fileStem);
-                 println!("just change the file extension after decryption");
+                newfile.write_all(&decryptedResult).unwrap();
+                println!("File name after decryption is {}", &fileStem);
+                println!("just change the file extension after decryption");
             }
         }
     }
